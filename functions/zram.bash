@@ -11,7 +11,7 @@ install_zram_code() {
   local zramGit
 
   overlayfsGit="https://github.com/kmxz/overlayfs-tools"
-  zramGit="https://github.com/mstormi/openhabian-zram"
+  zramGit="https://github.com/ecdye/openhabian-zram"
 
   echo -n "$(timestamp) [openHABian] Installing ZRAM code... "
   if ! cond_redirect mkdir -p "$1"; then echo "FAILED (create directory)"; return 1; fi
@@ -23,9 +23,9 @@ install_zram_code() {
   fi
 
   if [[ -d "${1}/openhabian-zram" ]]; then
-    if cond_redirect update_git_repo "${1}/openhabian-zram" "master"; then echo "OK"; else echo "FAILED (update zram)"; return 1; fi
+    if cond_redirect update_git_repo "${1}/openhabian-zram" "fixes-1"; then echo "OK"; else echo "FAILED (update zram)"; return 1; fi
   else
-    if cond_redirect git clone "$zramGit" "$1"/openhabian-zram; then echo "OK"; else echo "FAILED (clone zram)"; return 1; fi
+    if cond_redirect git clone --branch "fixes-1" "$zramGit" "$1"/openhabian-zram; then echo "OK"; else echo "FAILED (clone zram)"; return 1; fi
   fi
 }
 
@@ -86,13 +86,14 @@ init_zram_mounts() {
 
     echo -n "$(timestamp) [openHABian] Setting up ZRAM service... "
     if ! cond_redirect install -m 644 "$zramInstallLocation"/openhabian-zram/zram-config.service /etc/systemd/system/zram-config.service; then echo "FAILED (copy service)"; return 1; fi
+    if ! cond_redirect install -m 644 "$zramInstallLocation"/openhabian-zram/zramsync.service /etc/systemd/system/zramsync.service; then echo "FAILED (copy service)"; return 1; fi
     if ! cond_redirect systemctl -q daemon-reload &> /dev/null; then echo "FAILED (daemon-reload)"; return 1; fi
-    if cond_redirect systemctl enable --now zram-config.service; then echo "OK"; else echo "FAILED (enable service)"; return 1; fi
+    if cond_redirect systemctl enable --now zram-config.service zramsync.service; then echo "OK"; else echo "FAILED (enable service)"; return 1; fi
   elif [[ $1 == "uninstall" ]]; then
     echo -n "$(timestamp) [openHABian] Removing ZRAM service... "
-    if ! cond_redirect systemctl disable --now zram-config.service; then echo "FAILED (disable service)"; return 1; fi
-    if cond_redirect rm -f /etc/systemd/system/zram-config.service; then echo "OK"; else echo "FAILED (remove service)"; fi
-    if ! cond_redirect systemctl -q daemon-reload &> /dev/null; then echo "FAILED (daemon-reload)"; return 1; fi    
+    if ! cond_redirect systemctl disable --now zram-config.service zramsync.service; then echo "FAILED (disable service)"; return 1; fi
+    if cond_redirect rm -f /etc/systemd/system/zram-config.service /etc/systemd/system/zramsync.service; then echo "OK"; else echo "FAILED (remove service)"; fi
+    if ! cond_redirect systemctl -q daemon-reload &> /dev/null; then echo "FAILED (daemon-reload)"; return 1; fi
 
     echo -n "$(timestamp) [openHABian] Removing ZRAM... "
     if ! cond_redirect rm -f /usr/local/sbin/zram-config; then echo "FAILED (zram-config)"; return 1; fi
